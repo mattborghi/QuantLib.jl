@@ -1,32 +1,74 @@
 # Day Count (adapted from Ito.jl and InterestRates.jl)
 using Dates
 
-abstract type DayCount end
+# ==============================================================================================================================================================
+# ==============================================================================================================================================================
+# ============================================================= DAY COUNTS =====================================================================================
+# ==============================================================================================================================================================
+# ==============================================================================================================================================================
+#
+# METHODS RETURNED:
+# ----------------
+# day_count(c::DayCount, d_start::Date, d_end::Date)
+# Returns the number of days between the two dates based off of the day counter method
+#
+# year_fraction(c::DayCount, d_start::Date, d_end::Date)
+# Returns the fraction of year between the two dates based off of the day counter method
+# ==============================================================================================================================================================
+# These types provide methods for determining the length of a time period according to given market convention, both as a number of days and as a year fraction.
+#
+#
+# ------|---------------------------|-----------------
+#     Date 1                      Date 2
+#
+# The length of this time period (Date 2 - Date 1) depends on
+# * Calendar used: UK, USA, OrthodoxCalendar, etc.
+# * Business Day Convention: Actual/360, ACT/ACT, etc.
+# These impacts in both:
+# * number of days in between
+# * year fraction
 
-struct Actual360 <:DayCount ; end
+# ========================
+# ========================
+# DayCount Type Structure
+# ========================
+# ========================
+# All Day Counters inherit from this abstract type:
+abstract type DayCount end
+# Actual360 - Actual / 360 day count convention
+# Actual365 - Actual/365 (Fixed) day count convention
+struct Actual360 <: DayCount ; end
 struct Actual365 <: DayCount ; end
 
+# 30/360 Day Counters
 abstract type Thirty360 <:DayCount end
-
+# USAThirty360 - 30/360 (Bond Basis)
+# EuroThirty360 - 30E/360 (Eurobond basis)
+# ItalianThirty360 - 30/360 (Italian)
 struct BondThirty360 <: Thirty360; end
 struct EuroBondThirty360 <: Thirty360; end
 struct ItalianThirty360 <: Thirty360; end
-
+# Aliases
 const USAThirty360 = BondThirty360
 const EuroThirty360 = EuroBondThirty360
 
 abstract type ActualActual <: DayCount end
-
+# ISMAActualActual - the ISMA and US Treasury convention, also known as “Actual/Actual (Bond)”
+# ISDAActualActual - the ISDA convention, also known as “Actual/Actual (Historical)”, “Actual/Actual”, “Act/Act”, and according to ISDA also “Actual/365”, “Act/365”, and “A/365”
+# AFBActualActual - the AFB convention, also known as “Actual/Actual (Euro)”
 struct ISMAActualActual <: ActualActual; end
 struct ISDAActualActual <: ActualActual; end
 struct AFBActualActual <: ActualActual; end
-
+# Aliases
 const ActualActualBond = ISMAActualActual
 
+# SimpleDayCount - Simple day counter for reproducing theoretical calculations.
 struct SimpleDayCount <: DayCount end
 
 # Day Counting
 # default day count method
+
+# assuming moneths are 30 days long and year with 360 days long.
 function day_count(c::BondThirty360, d_start::Date, d_end::Date)
   dd1 = day(d_start)
   dd2 = day(d_end)

@@ -2,12 +2,16 @@ using QuantLib
 
 import Base.getindex, Base.lastindex
 
+# Construct TimeGrid, we store
 mutable struct TimeGrid
-  times::Vector{Float64}
-  dt::Vector{Float64}
-  mandatoryTimes::Vector{Float64}
+  times::Vector{Float64} # array of times
+  dt::Vector{Float64} # an array of steps
+  mandatoryTimes::Vector{Float64} # just the sort(unique()) of the input vector
 end
 
+# > QuantLib.Time.TimeGrid([1.,2.,3.,4.,5.,6.,7.,8.,9.,10.], 20)
+# > QuantLib.Time.TimeGrid([0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5  …  5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0],
+# [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,.5, 0.5], [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0])
 function TimeGrid(times::Vector{Float64}, steps::Int)
   sortedUniqueTimes = sort(unique(times))
 
@@ -39,6 +43,9 @@ function TimeGrid(times::Vector{Float64}, steps::Int)
   return TimeGrid(times, dt, sortedUniqueTimes)
 end
 
+# > QuantLib.Time.TimeGrid(17.5, 20)
+# > QuantLib.Time.TimeGrid([0.0, 0.875, 1.75, 2.625, 3.5, 4.375, 5.25, 6.125, 7.0, 7.875  …  9.625, 10.5, 11.375, 12.25, 13.125, 14.0, 14.875, 15.75, 16.625, 17.5],
+# [0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875, 0.875], [17.5])
 function TimeGrid(endTime::Float64, steps::Int)
   endTime > 0.0 || error("negative times not allowed")
   dt = endTime / steps

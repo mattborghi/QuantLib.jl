@@ -1,25 +1,43 @@
 # Business Calendars (adapted from Ito.jl and BusinessDays.jl)
+# QuantLib.jl has a number of calendars based on region and asset-type.
 using Dates
+# =======================================================================================================================
+# =======================================================================================================================
+# =============================================== BUSINESS CALLENDARS ===================================================
+# =======================================================================================================================
+# =======================================================================================================================
 
+# All calendars inherit from the abstract type:
 abstract type BusinessCalendar end
 
 abstract type WesternCalendar <: BusinessCalendar end
 abstract type  OrthodoxCalendar <: BusinessCalendar end
 
 # target calendar
+# Also, a Target Calendar is available which has only basic holidays:
+# * Saturdays * Sundays * New Year’s Day (Jan 1) * Good Friday * Easter Monday
+# * Labor Day (May 1) * Christmas (Dec 25) * Day of Goodwill (Dec 26)
 struct TargetCalendar <: BusinessCalendar end
 
 # for simply moving foward and backward in time
 struct NullCalendar <: BusinessCalendar end
 
+# A Joint Calendar construction exists that combines two calendars
 mutable struct JointCalendar{B <: BusinessCalendar, C <: BusinessCalendar} <: BusinessCalendar
   cal1::B
   cal2::C
 end
 
+# ==============================================================
+# Additional calendars are organized by geography and asset type
+# ==============================================================
+
 # US Calendars
 abstract type UnitedStatesCalendar <: WesternCalendar end
-
+# USSettlementCalendar - General settlement calendar
+# USNYSECalendar - New York Stock Exchange calendar
+# USNERCCalendar - North American Energy Reliability Council calendar
+# USGovernmentBondCalendar - US government bond market
 struct USSettlementCalendar <: UnitedStatesCalendar; end
 struct USNYSECalendar <: UnitedStatesCalendar; end
 struct USNERCCalendar <: UnitedStatesCalendar; end
@@ -27,17 +45,30 @@ struct USGovernmentBondCalendar <: UnitedStatesCalendar; end
 
 # UK Calendars
 abstract type UnitedKingdomCalendar <: WesternCalendar end
-
+# UKSettlementCalendar - UK Settlement calendar
+# UKLSECalendar - London Stock Exchange calendar
+# UKLMECalendar - London Metals Exchange calendar
 struct UKSettlementCalendar <: UnitedKingdomCalendar end
 struct UKLSECalendar <: UnitedKingdomCalendar end
 struct UKLMECalendar <: UnitedKingdomCalendar end
 
+# ===================================================================================================================================================================================
+# ===================================================================================================================================================================================
+# These conventions specify the algorithm used to adjust a date in case it is not a valid business day.
 abstract type BusinessDayConvention end
+# Unadjusted - Do not adjust
+# Modified Following - Choose the first business day after the given holiday unless it belongs to a different month, in which case choose the first business day before the holiday.
+# Following - Choose the first business day after the given holiday.
 struct Unadjusted <: BusinessDayConvention end
 struct ModifiedFollowing <: BusinessDayConvention end
 struct Following <: BusinessDayConvention end
-
+# ===================================================================================================================================================================================
+# ===================================================================================================================================================================================
 # easter functions
+"""
+easter_rata(Int) -> Basically inputs an integer number >= 1582
+and returns another integer
+"""
 function easter_rata(y::Int)
 
   local c::Int64
@@ -51,6 +82,8 @@ function easter_rata(y::Int)
    end
 
 	# Century
+    # div returns the integer part of a division
+    # i.e., for 1991 we get -> century = 20
    c = div( y , 100) + 1
 
    # Shifted Epact
@@ -68,16 +101,20 @@ function easter_rata(y::Int)
    return p + 7 - mod(p, 7)
 end
 
-# Returns Date
+
 function easter_date(y::Int)
 	# Compute the gregorian date for Rata Die number
      return Date(Dates.rata2datetime( easter_rata(y) ))
 end
 
 # calendar functions
+# ==============================================
+# ============== ADVANCE =======================
+# ==============================================
 # advance{B <: BusinessDayConvention}(time_period::Day, cal::NullCalendar, dt::Date, ::B) = dt += time_period
 # advance{B <: BusinessDayConvention}(time_period::Union{Week, Month, Year}, cal::NullCalendar, dt::Date, ::B) = dt += time_period
 
+# TODO: Check if some methods are missing. biz_conv is never used?
 function advance(days::Day, cal::BusinessCalendar, dt::Date, biz_conv::BusinessDayConvention = Following())
   n = days.value
   if n > 0
@@ -105,7 +142,9 @@ function advance(time_period::Union{Week, Month, Year}, cal::BusinessCalendar, d
   dt += time_period
   return adjust(cal, biz_conv, dt)
 end
-
+# ==========================================================
+# =============== IS_BUSINESS_DAY ==========================
+# ==========================================================
 is_business_day(cal::NullCalendar, ::Date) = true
 
 function is_business_day(cal::BusinessCalendar, dt::Date)
@@ -129,6 +168,10 @@ function adjustweekendholidayUS(dt::Date)
 
 	return dt
 end
+
+# ==========================================================
+# =============== IS_HOLIDAY ===============================
+# ==========================================================
 
 is_holiday(joint::JointCalendar, dt::Date) = is_holiday(joint.cal1, dt) || is_holiday(joint.cal2, dt)
 
@@ -384,9 +427,20 @@ function is_holiday(::TargetCalendar, dt::Date)
   end
 end
 
-# adjustments
+# =====================================================================================
+# =====================================================================================
+#  ==================================== Adjustments ===================================
+# =====================================================================================
+# =====================================================================================
+
+# if termination date convention == Unadjusted left as it is
 adjust(::BusinessCalendar, ::Unadjusted, d::Date) = d
 
+# If termination date convention == ModifiedFollowing || Following
+# check if it's not a business day, so we move to the next business day
+# if it's a business day just return as it is.
+# TODO: Shouldn't this be improved? ModifiedFollowing should check if the new day
+# remain in the current month.
 function adjust(cal::BusinessCalendar, ::Union{ModifiedFollowing, Following}, d::Date)
   while !is_business_day(cal, d)
     d += Day(1)
@@ -395,4 +449,5 @@ function adjust(cal::BusinessCalendar, ::Union{ModifiedFollowing, Following}, d:
   return d
 end
 
+# By default adjust with Following
 adjust(cal::BusinessCalendar, d::Date) = adjust(cal, Following(), d)
